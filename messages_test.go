@@ -220,6 +220,32 @@ func TestArgsToMap(t *testing.T) {
 	assertEquals(string(m["age"]), "3", t)
 }
 
+func BenchmarkMessageWrites(b *testing.B) {
+	mbox := NewMailbox("test")
+	for i := 0; i < b.N; i++ {
+		m := mbox.NewMessage()
+		if err := mbox.Send(m); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkMessageReads(b *testing.B) {
+	mbox := NewMailbox("test")
+	for i := 0; i < b.N; i++ {
+		m := mbox.NewMessage()
+		if err := mbox.Send(m); err != nil {
+			b.Fatal(err)
+		}
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, err := mbox.Wait(); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func assertIsNotNil(v interface{}, t *testing.T) {
 	if v == nil {
 		t.Log("Value should not be nil")

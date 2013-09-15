@@ -1,6 +1,7 @@
 package messages
 
 import (
+	"crypto/md5"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -71,15 +72,21 @@ func newPool() *redis.Pool {
 
 // Create a new message from the current Mailbox
 func (mbox *Mailbox) NewMessage() *Message {
+	created := time.Now().Format(time.UnixDate)
+
 	buff := make([]byte, 32)
+	hash := md5.New()
 	if _, err := io.ReadFull(rand.Reader, buff); err != nil {
 		panic(err)
 	}
-	id := fmt.Sprintf("message:%s:%s", mbox.Name, hex.EncodeToString(buff))
+	hash.Write(buff)
+	hash.Write([]byte(created))
+
+	id := fmt.Sprintf("message:%s:%s", mbox.Name, hex.EncodeToString(hash.Sum(nil)))
 
 	return &Message{
 		ID:      id,
-		Created: time.Now().Format(time.UnixDate),
+		Created: created,
 		Mailbox: mbox.Name,
 	}
 }

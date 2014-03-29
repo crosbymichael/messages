@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"github.com/crosbymichael/messages/stats"
 	"github.com/garyburd/redigo/redis"
 	"io"
 	"time"
@@ -41,10 +42,8 @@ func (mbox *Mailbox) NewMessage() *Message {
 	hash.Write(buff)
 	hash.Write([]byte(created))
 
-	id := fmt.Sprintf("message:%s:%s", mbox.Name, hex.EncodeToString(hash.Sum(nil)))
-
 	return &Message{
-		ID:      id,
+		ID:      fmt.Sprintf("message:%s:%s", mbox.Name, hex.EncodeToString(hash.Sum(nil))),
 		Created: created,
 		Mailbox: mbox.Name,
 	}
@@ -52,6 +51,8 @@ func (mbox *Mailbox) NewMessage() *Message {
 
 // Send the message
 func (mbox *Mailbox) Send(m *Message) error {
+	stats.MessageCount.Inc(1)
+
 	conn := mbox.pool.Get()
 	defer conn.Close()
 
@@ -59,20 +60,19 @@ func (mbox *Mailbox) Send(m *Message) error {
 		return err
 	}
 
-	args := []interface{}{m.ID}
-	args = append(args,
+	args := []interface{}{
+		m.ID,
 		"mailbox", m.Mailbox,
 		"created", m.Created,
-		"body", m.Body)
+		"body", m.Body,
+	}
 
 	if err := conn.Send("HMSET", args...); err != nil {
 		return err
 	}
-
 	if err := conn.Send("RPUSH", fmt.Sprintf("%s:messages", mbox.key()), m.ID); err != nil {
 		return err
 	}
-
 	if _, err := conn.Do("EXEC"); err != nil {
 		return err
 	}
@@ -87,12 +87,7 @@ func (mbox *Mailbox) Wait() (*Message, error) {
 		return nil, err
 	}
 
-	id := string(reply[1].([]byte))
-
-	conn := mbox.pool.Get()
-	defer conn.Close()
-
-	return mbox.messageFromId(id, conn)
+	return mbox.messageFromId(string(reply[1].([]byte)))
 }
 
 // Delete the message from the transport NOW
@@ -108,7 +103,6 @@ func (mbox *Mailbox) DestoryAfter(m *Message, seconds int) error {
 		}
 		return nil
 	}
-
 	if _, err := mbox.send("EXPIRE", m.ID, seconds); err != nil {
 		return err
 	}
@@ -132,20 +126,19 @@ func (mbox *Mailbox) key() string {
 	return fmt.Sprintf("mailbox:%s", mbox.Name)
 }
 
-func (mbox *Mailbox) messageFromId(id string, conn redis.Conn) (*Message, error) {
-	result, err := redis.MultiBulk(conn.Do("HGETALL", id))
+func (mbox *Mailbox) messageFromId(id string) (*Message, error) {
+	result, err := redis.MultiBulk(mbox.send("HGETALL", id))
 	if err != nil {
 		return nil, err
 	}
-	args := make([][]byte, len(result))
 
+	args := make([][]byte, len(result))
 	for i := 0; i < len(result); i++ {
 		data := result[i].([]byte)
 		args[i] = data
 	}
 
 	hash := argsToMap(args)
-
 	return &Message{
 		ID:      id,
 		Created: string(hash["created"]),

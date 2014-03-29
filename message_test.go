@@ -220,6 +220,21 @@ func TestArgsToMap(t *testing.T) {
 	assertEquals(string(m["age"]), "3", t)
 }
 
+func TestMarshalAndUnmarshal(t *testing.T) {
+	m := &Message{}
+
+	err := m.Marshal(struct {
+		Name string
+		Age  int
+	}{
+		Name: "koye",
+		Age:  3,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func BenchmarkMessageWrites(b *testing.B) {
 	mbox := NewMailbox("test")
 	for i := 0; i < b.N; i++ {

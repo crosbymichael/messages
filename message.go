@@ -11,10 +11,10 @@ var (
 
 // Message to a recipient
 type Message struct {
-	ID      string // UUID of a message
-	Created string // When the message was created
-	Mailbox string // Name of the mailbox used to send the message
-	Body    []byte // Body of the message
+	ID      string `json:"id"`      // UUID of a message
+	Created string `json:"created"` // When the message was created
+	Mailbox string `json:"mailbox"` // Name of the mailbox used to send the message
+	Body    []byte `json:"body"`    // Body of the message
 }
 
 // Return a time.Time for the created timestamp

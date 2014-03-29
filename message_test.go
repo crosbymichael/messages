@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/garyburd/redigo/redis"
-	"os"
 	"testing"
 	"time"
 )
@@ -65,13 +64,13 @@ func TestGetCreateTime(t *testing.T) {
 }
 
 func TestNewMailbox(t *testing.T) {
-	mbox := NewMailbox("test")
+	mbox := NewMailbox("test", "", "", "").(*mailbox)
 	if mbox == nil {
 		t.FailNow()
 	}
 
-	assertEquals(mbox.Name, "test", t)
-	assertEquals(mbox.DefaultWaitTimeout, 0, t)
+	assertEquals(mbox.name, "test", t)
+	assertEquals(mbox.defaultWaitTimeout, 0, t)
 
 	assertIsNotNil(mbox.pool, t)
 }
@@ -82,7 +81,7 @@ func TestUnmarshalBody(t *testing.T) {
 		Age:  3,
 	}
 
-	mbox := NewMailbox("test")
+	mbox := NewMailbox("test", "", "", "").(*mailbox)
 
 	m := mbox.NewMessage()
 	data, err := json.Marshal(body)
@@ -101,7 +100,7 @@ func TestUnmarshalBody(t *testing.T) {
 }
 
 func TestNewMessage(t *testing.T) {
-	mbox := NewMailbox("test")
+	mbox := NewMailbox("test", "", "", "").(*mailbox)
 
 	m := mbox.NewMessage()
 	assertIsNotNil(m, t)
@@ -117,36 +116,13 @@ func TestNewMessage(t *testing.T) {
 	}
 }
 
-func TestDefaultEnv(t *testing.T) {
-	os.Setenv("MAILBOX_TEST", "test")
-	v := defaultEnv("MAILBOX_TEST", "nottest")
-	assertEquals(v, "test", t)
-
-	v = defaultEnv("MAILBOX_NOTEST", "notest")
-	assertEquals(v, "notest", t)
-}
-
 func TestNewPool(t *testing.T) {
-	pool := newPool()
+	pool := newPool("", "", "")
 	assertIsNotNil(pool, t)
 }
 
-func TestMailboxLen(t *testing.T) {
-	mbox := NewMailbox("test")
-	mbox.pool = newTestPool(func(c string, args ...interface{}) (interface{}, error) {
-		if len(args) > 0 {
-			assertEquals(c, "LLEN", t)
-			key := args[0]
-			assertEquals(key.(string), "mailbox:test:messages", t)
-			return int64(5), nil
-		}
-		return nil, nil
-	}, nil)
-	assertEquals(mbox.Len(), int64(5), t)
-}
-
 func TestMailboxDestroy(t *testing.T) {
-	mbox := NewMailbox("test")
+	mbox := NewMailbox("test", "", "", "").(*mailbox)
 	m := mbox.NewMessage()
 
 	mbox.pool = newTestPool(func(c string, args ...interface{}) (interface{}, error) {
@@ -164,7 +140,7 @@ func TestMailboxDestroy(t *testing.T) {
 }
 
 func TestMailboxDestroyAfter(t *testing.T) {
-	mbox := NewMailbox("test")
+	mbox := NewMailbox("test", "", "", "").(*mailbox)
 	m := mbox.NewMessage()
 
 	mbox.pool = newTestPool(func(c string, args ...interface{}) (interface{}, error) {
@@ -184,7 +160,7 @@ func TestMailboxDestroyAfter(t *testing.T) {
 }
 
 func TestMailboxWait(t *testing.T) {
-	mbox := NewMailbox("test")
+	mbox := NewMailbox("test", "", "", "").(*mailbox)
 
 	mbox.pool = newTestPool(func(c string, args ...interface{}) (interface{}, error) {
 		if len(args) > 0 {
@@ -236,7 +212,7 @@ func TestMarshalAndUnmarshal(t *testing.T) {
 }
 
 func BenchmarkMessageWrites(b *testing.B) {
-	mbox := NewMailbox("test")
+	mbox := NewMailbox("test", "", "", "").(*mailbox)
 	for i := 0; i < b.N; i++ {
 		m := mbox.NewMessage()
 		if err := mbox.Send(m); err != nil {
@@ -246,7 +222,7 @@ func BenchmarkMessageWrites(b *testing.B) {
 }
 
 func BenchmarkMessageReads(b *testing.B) {
-	mbox := NewMailbox("test")
+	mbox := NewMailbox("test", "", "", "").(*mailbox)
 	for i := 0; i < b.N; i++ {
 		m := mbox.NewMessage()
 		if err := mbox.Send(m); err != nil {

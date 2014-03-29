@@ -20,11 +20,11 @@ type Mailbox struct {
 
 // Create a new named mailbox to send and receive
 // messages on.
-func NewMailbox(name string) *Mailbox {
+func NewMailbox(name, proto, addr, password string) *Mailbox {
 	return &Mailbox{
 		Name:               name,
 		DefaultWaitTimeout: 0, // Default to 0 so that the mailbox blocks forever
-		pool:               newPool(),
+		pool:               newPool(proto, addr, password),
 	}
 }
 

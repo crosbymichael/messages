@@ -12,7 +12,7 @@ type Feed struct {
 }
 
 func main() {
-	mbox := messages.NewMailbox("feeds")
+	mbox := messages.NewMailbox("feeds", "tcp", "127.0.0.1:6379", "")
 	feed := &Feed{
 		Url:    "http://crosbymichael.com/feeds/all.atom.xml",
 		Author: "Michael",

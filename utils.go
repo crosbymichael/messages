@@ -2,16 +2,10 @@ package messages
 
 import (
 	"github.com/garyburd/redigo/redis"
-	"os"
 )
 
-func newPool() *redis.Pool {
+func newPool(proto, addr, password string) *redis.Pool {
 	return redis.NewPool(func() (redis.Conn, error) {
-		var (
-			proto    = defaultEnv("REDIS_PROTO", "tcp")
-			addr     = defaultEnv("REDIS_ADDR", "127.0.0.1:6379")
-			password = defaultEnv("REDIS_PASSWORD", "")
-		)
 
 		c, err := redis.Dial(proto, addr)
 		if err != nil {
@@ -35,14 +29,4 @@ func argsToMap(args [][]byte) map[string][]byte {
 		result[key] = args[i]
 	}
 	return result
-}
-
-// Get a value from the machines environment or use the
-// default value
-func defaultEnv(key, defaultValue string) string {
-	value := os.Getenv(key)
-	if value == "" {
-		value = defaultValue
-	}
-	return value
 }

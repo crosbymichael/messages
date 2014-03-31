@@ -66,11 +66,31 @@ func (mbox *mailbox) Send(m *Message) error {
 // Wait for a new message to be delivered using the
 // timeout specified for the mailbox
 func (mbox *mailbox) Wait() (*Message, error) {
-	reply, err := redis.MultiBulk(mbox.send("BLPOP", fmt.Sprintf("mailbox:%s", mbox.name), mbox.defaultWaitTimeout))
+	conn := mbox.pool.Get()
+	defer conn.Close()
+
+	reply, err := redis.MultiBulk(conn.Do("BLPOP", fmt.Sprintf("mailbox:%s", mbox.name), mbox.defaultWaitTimeout))
 	if err != nil {
 		return nil, err
 	}
-	return mbox.messageFromId(string(reply[1].([]byte)))
+
+	id := string(reply[1].([]byte))
+	result, err := redis.MultiBulk(conn.Do("HGETALL", fmt.Sprintf("messages:%s", id)))
+	if err != nil {
+		return nil, err
+	}
+
+	args := make([][]byte, len(result))
+	for i := 0; i < len(result); i++ {
+		args[i] = result[i].([]byte)
+	}
+
+	hash := argsToMap(args)
+	return &Message{
+		ID:      id,
+		Created: string(hash["created"]),
+		Body:    hash["body"],
+	}, nil
 }
 
 // Delete the message from the transport NOW
@@ -80,40 +100,20 @@ func (mbox *mailbox) Destroy(m *Message) error {
 
 // Delete the message after n seconds
 func (mbox *mailbox) DestroyAfter(m *Message, seconds int) error {
+	var (
+		key  = fmt.Sprintf("messages:%s", m.ID)
+		conn = mbox.pool.Get()
+	)
+	defer conn.Close()
+
 	if seconds < 1 {
-		if _, err := mbox.send("DEL", fmt.Sprintf("messages:%s", m.ID)); err != nil {
+		if _, err := conn.Do("DEL", key); err != nil {
 			return err
 		}
 		return nil
 	}
-	if _, err := mbox.send("EXPIRE", fmt.Sprintf("messages:%s", m.ID), seconds); err != nil {
+	if _, err := conn.Do("EXPIRE", key, seconds); err != nil {
 		return err
 	}
 	return nil
-}
-
-func (mbox *mailbox) send(cmd string, args ...interface{}) (interface{}, error) {
-	conn := mbox.pool.Get()
-	defer conn.Close()
-	return conn.Do(cmd, args...)
-}
-
-func (mbox *mailbox) messageFromId(id string) (*Message, error) {
-	result, err := redis.MultiBulk(mbox.send("HGETALL", fmt.Sprintf("messages:%s", id)))
-	if err != nil {
-		return nil, err
-	}
-
-	args := make([][]byte, len(result))
-	for i := 0; i < len(result); i++ {
-		data := result[i].([]byte)
-		args[i] = data
-	}
-
-	hash := argsToMap(args)
-	return &Message{
-		ID:      id,
-		Created: string(hash["created"]),
-		Body:    hash["body"],
-	}, nil
 }

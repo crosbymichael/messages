@@ -17,6 +17,7 @@ type Mailbox interface {
 	Wait() (*Message, error)
 	Destroy(*Message) error
 	DestoryAfter(*Message, int) error
+	Close() error
 }
 
 // Place to send and receive messages
@@ -34,6 +35,10 @@ func NewMailbox(name, proto, addr, password string) Mailbox {
 		defaultWaitTimeout: 0, // Default to 0 so that the mailbox blocks forever
 		pool:               newPool(proto, addr, password),
 	}
+}
+
+func (mbox *mailbox) Close() error {
+	return mbox.pool.Close()
 }
 
 // Create a new message from the current Mailbox

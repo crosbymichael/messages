@@ -81,9 +81,7 @@ func TestUnmarshalBody(t *testing.T) {
 		Age:  3,
 	}
 
-	mbox := NewMailbox("test", "", "", "").(*mailbox)
-
-	m := mbox.NewMessage()
+	m := NewMessage()
 	data, err := json.Marshal(body)
 	if err != nil {
 		t.Fatal(err)
@@ -100,12 +98,8 @@ func TestUnmarshalBody(t *testing.T) {
 }
 
 func TestNewMessage(t *testing.T) {
-	mbox := NewMailbox("test", "", "", "").(*mailbox)
-
-	m := mbox.NewMessage()
+	m := NewMessage()
 	assertIsNotNil(m, t)
-
-	assertEquals(m.Mailbox, "test", t)
 
 	if m.ID == "" {
 		t.Fail()
@@ -123,13 +117,13 @@ func TestNewPool(t *testing.T) {
 
 func TestMailboxDestroy(t *testing.T) {
 	mbox := NewMailbox("test", "", "", "").(*mailbox)
-	m := mbox.NewMessage()
+	m := NewMessage()
 
 	mbox.pool = newTestPool(func(c string, args ...interface{}) (interface{}, error) {
 		if len(args) > 0 {
 			assertEquals(c, "DEL", t)
 			key := args[0]
-			assertEquals(key.(string), m.ID, t)
+			assertEquals(key.(string), fmt.Sprintf("messages:%s", m.ID), t)
 		}
 		return nil, nil
 	}, nil)
@@ -141,20 +135,20 @@ func TestMailboxDestroy(t *testing.T) {
 
 func TestMailboxDestroyAfter(t *testing.T) {
 	mbox := NewMailbox("test", "", "", "").(*mailbox)
-	m := mbox.NewMessage()
+	m := NewMessage()
 
 	mbox.pool = newTestPool(func(c string, args ...interface{}) (interface{}, error) {
 		if len(args) > 0 {
 			assertEquals(c, "EXPIRE", t)
 			key := args[0]
-			assertEquals(key.(string), m.ID, t)
+			assertEquals(key.(string), fmt.Sprintf("messages:%s", m.ID), t)
 			sec := args[1]
 			assertEquals(sec.(int), 10, t)
 		}
 		return nil, nil
 	}, nil)
 
-	if err := mbox.DestoryAfter(m, 10); err != nil {
+	if err := mbox.DestroyAfter(m, 10); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -167,7 +161,7 @@ func TestMailboxWait(t *testing.T) {
 			assertEquals(c, "BLPOP", t)
 
 			key := args[0]
-			assertEquals(key.(string), "mailbox:test:messages", t)
+			assertEquals(key.(string), "mailbox:test", t)
 			timeout := args[1]
 			assertEquals(timeout.(int), 0, t)
 
@@ -214,7 +208,7 @@ func TestMarshalAndUnmarshal(t *testing.T) {
 func BenchmarkMessageWrites(b *testing.B) {
 	mbox := NewMailbox("test", "", "", "").(*mailbox)
 	for i := 0; i < b.N; i++ {
-		m := mbox.NewMessage()
+		m := NewMessage()
 		if err := mbox.Send(m); err != nil {
 			b.Fatal(err)
 		}
@@ -224,7 +218,7 @@ func BenchmarkMessageWrites(b *testing.B) {
 func BenchmarkMessageReads(b *testing.B) {
 	mbox := NewMailbox("test", "", "", "").(*mailbox)
 	for i := 0; i < b.N; i++ {
-		m := mbox.NewMessage()
+		m := NewMessage()
 		if err := mbox.Send(m); err != nil {
 			b.Fatal(err)
 		}

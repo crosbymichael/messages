@@ -25,10 +25,10 @@ func worker(c chan *messages.Message, group *sync.WaitGroup, mbox messages.Mailb
 		if err != nil {
 			panic(err)
 		}
-		fmt.Printf("ID: %s\nMailbox: %s\nCreated: %s\n", m.ID, m.Mailbox, t.Format(time.RubyDate))
+		fmt.Printf("ID: %s\nCreated: %s\n", m.ID, t.Format(time.RubyDate))
 		fmt.Printf("Body: %v\n", newFeed)
 
-		if err := mbox.DestoryAfter(m, 500); err != nil {
+		if err := mbox.DestroyAfter(m, 500); err != nil {
 			panic(err)
 		}
 	}
@@ -68,7 +68,7 @@ func main() {
 	}()
 
 	for i := 0; i < 10000; i++ {
-		m := mbox.NewMessage()
+		m := messages.NewMessage()
 		if err := m.Marshal(feed); err != nil {
 			panic(err)
 		}

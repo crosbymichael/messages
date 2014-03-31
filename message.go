@@ -1,7 +1,11 @@
 package messages
 
 import (
+	"crypto/md5"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
+	"io"
 	"time"
 )
 
@@ -13,8 +17,27 @@ var (
 type Message struct {
 	ID      string `json:"id"`      // UUID of a message
 	Created string `json:"created"` // When the message was created
-	Mailbox string `json:"mailbox"` // Name of the mailbox used to send the message
 	Body    []byte `json:"body"`    // Body of the message
+}
+
+// Create a new message
+func NewMessage() *Message {
+	var (
+		created = time.Now().Format(time.UnixDate)
+		buff    = make([]byte, 32)
+		hash    = md5.New()
+	)
+
+	if _, err := io.ReadFull(rand.Reader, buff); err != nil {
+		panic(err)
+	}
+	hash.Write(buff)
+	hash.Write([]byte(created))
+
+	return &Message{
+		ID:      hex.EncodeToString(hash.Sum(nil)),
+		Created: created,
+	}
 }
 
 // Return a time.Time for the created timestamp

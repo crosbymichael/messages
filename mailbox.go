@@ -1,22 +1,16 @@
 package messages
 
 import (
-	"crypto/md5"
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"github.com/crosbymichael/messages/stats"
 	"github.com/garyburd/redigo/redis"
-	"io"
-	"time"
 )
 
 type Mailbox interface {
-	NewMessage() *Message
 	Send(*Message) error
 	Wait() (*Message, error)
 	Destroy(*Message) error
-	DestoryAfter(*Message, int) error
+	DestroyAfter(*Message, int) error
 	Close() error
 }
 
@@ -41,27 +35,6 @@ func (mbox *mailbox) Close() error {
 	return mbox.pool.Close()
 }
 
-// Create a new message from the current Mailbox
-func (mbox *mailbox) NewMessage() *Message {
-	var (
-		created = time.Now().Format(time.UnixDate)
-		buff    = make([]byte, 32)
-		hash    = md5.New()
-	)
-
-	if _, err := io.ReadFull(rand.Reader, buff); err != nil {
-		panic(err)
-	}
-	hash.Write(buff)
-	hash.Write([]byte(created))
-
-	return &Message{
-		ID:      fmt.Sprintf("message:%s:%s", mbox.name, hex.EncodeToString(hash.Sum(nil))),
-		Created: created,
-		Mailbox: mbox.name,
-	}
-}
-
 // Send the message
 func (mbox *mailbox) Send(m *Message) error {
 	stats.MessageCount.Inc(1)
@@ -70,8 +43,7 @@ func (mbox *mailbox) Send(m *Message) error {
 	defer conn.Close()
 
 	args := []interface{}{
-		m.ID,
-		"mailbox", m.Mailbox,
+		fmt.Sprintf("messages:%s", m.ID),
 		"created", m.Created,
 		"body", m.Body,
 	}
@@ -82,7 +54,7 @@ func (mbox *mailbox) Send(m *Message) error {
 	if err := conn.Send("HMSET", args...); err != nil {
 		return err
 	}
-	if err := conn.Send("RPUSH", fmt.Sprintf("%s:messages", mbox.key()), m.ID); err != nil {
+	if err := conn.Send("RPUSH", fmt.Sprintf("mailbox:%s", mbox.name), m.ID); err != nil {
 		return err
 	}
 	if _, err := conn.Do("EXEC"); err != nil {
@@ -94,7 +66,7 @@ func (mbox *mailbox) Send(m *Message) error {
 // Wait for a new message to be delivered using the
 // timeout specified for the mailbox
 func (mbox *mailbox) Wait() (*Message, error) {
-	reply, err := redis.MultiBulk(mbox.send("BLPOP", fmt.Sprintf("%s:messages", mbox.key()), mbox.defaultWaitTimeout))
+	reply, err := redis.MultiBulk(mbox.send("BLPOP", fmt.Sprintf("mailbox:%s", mbox.name), mbox.defaultWaitTimeout))
 	if err != nil {
 		return nil, err
 	}
@@ -103,18 +75,18 @@ func (mbox *mailbox) Wait() (*Message, error) {
 
 // Delete the message from the transport NOW
 func (mbox *mailbox) Destroy(m *Message) error {
-	return mbox.DestoryAfter(m, 0)
+	return mbox.DestroyAfter(m, 0)
 }
 
 // Delete the message after n seconds
-func (mbox *mailbox) DestoryAfter(m *Message, seconds int) error {
+func (mbox *mailbox) DestroyAfter(m *Message, seconds int) error {
 	if seconds < 1 {
-		if _, err := mbox.send("DEL", m.ID); err != nil {
+		if _, err := mbox.send("DEL", fmt.Sprintf("messages:%s", m.ID)); err != nil {
 			return err
 		}
 		return nil
 	}
-	if _, err := mbox.send("EXPIRE", m.ID, seconds); err != nil {
+	if _, err := mbox.send("EXPIRE", fmt.Sprintf("messages:%s", m.ID), seconds); err != nil {
 		return err
 	}
 	return nil
@@ -126,12 +98,8 @@ func (mbox *mailbox) send(cmd string, args ...interface{}) (interface{}, error) 
 	return conn.Do(cmd, args...)
 }
 
-func (mbox *mailbox) key() string {
-	return fmt.Sprintf("mailbox:%s", mbox.name)
-}
-
 func (mbox *mailbox) messageFromId(id string) (*Message, error) {
-	result, err := redis.MultiBulk(mbox.send("HGETALL", id))
+	result, err := redis.MultiBulk(mbox.send("HGETALL", fmt.Sprintf("messages:%s", id)))
 	if err != nil {
 		return nil, err
 	}
@@ -147,6 +115,5 @@ func (mbox *mailbox) messageFromId(id string) (*Message, error) {
 		ID:      id,
 		Created: string(hash["created"]),
 		Body:    hash["body"],
-		Mailbox: string(hash["mailbox"]),
 	}, nil
 }

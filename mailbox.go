@@ -2,14 +2,12 @@ package messages
 
 import (
 	"fmt"
-	"github.com/crosbymichael/messages/stats"
 	"github.com/garyburd/redigo/redis"
 )
 
 type Mailbox interface {
 	Send(*Message) error
 	Wait() (*Message, error)
-	Destroy(*Message) error
 	DestroyAfter(*Message, int) error
 	Close() error
 }
@@ -37,8 +35,6 @@ func (mbox *mailbox) Close() error {
 
 // Send the message
 func (mbox *mailbox) Send(m *Message) error {
-	stats.MessageCount.Inc(1)
-
 	conn := mbox.pool.Get()
 	defer conn.Close()
 
@@ -91,11 +87,6 @@ func (mbox *mailbox) Wait() (*Message, error) {
 		Created: string(hash["created"]),
 		Body:    hash["body"],
 	}, nil
-}
-
-// Delete the message from the transport NOW
-func (mbox *mailbox) Destroy(m *Message) error {
-	return mbox.DestroyAfter(m, 0)
 }
 
 // Delete the message after n seconds

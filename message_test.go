@@ -3,9 +3,10 @@ package messages
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/garyburd/redigo/redis"
 	"testing"
 	"time"
+
+	"github.com/garyburd/redigo/redis"
 )
 
 type TestBody struct {

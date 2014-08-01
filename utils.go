@@ -23,10 +23,12 @@ func newPool(proto, addr, password string) *redis.Pool {
 
 func argsToMap(args [][]byte) map[string][]byte {
 	result := make(map[string][]byte, len(args)/2)
+
 	for i := 0; i < len(args); i++ {
 		key := string(args[i])
 		i++
 		result[key] = args[i]
 	}
+
 	return result
 }

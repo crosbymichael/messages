@@ -31,6 +31,7 @@ func NewMessage() *Message {
 	if _, err := io.ReadFull(rand.Reader, buff); err != nil {
 		panic(err)
 	}
+
 	hash.Write(buff)
 	hash.Write([]byte(created))
 
@@ -56,6 +57,8 @@ func (m *Message) Marshal(v interface{}) error {
 	if err != nil {
 		return err
 	}
+
 	m.Body = data
+
 	return nil
 }

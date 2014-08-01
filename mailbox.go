@@ -2,6 +2,7 @@ package messages
 
 import (
 	"fmt"
+
 	"github.com/garyburd/redigo/redis"
 )
 
@@ -47,15 +48,19 @@ func (mbox *mailbox) Send(m *Message) error {
 	if err := conn.Send("MULTI"); err != nil {
 		return err
 	}
+
 	if err := conn.Send("HMSET", args...); err != nil {
 		return err
 	}
+
 	if err := conn.Send("RPUSH", fmt.Sprintf("mailbox:%s", mbox.name), m.ID); err != nil {
 		return err
 	}
+
 	if _, err := conn.Do("EXEC"); err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -82,6 +87,7 @@ func (mbox *mailbox) Wait() (*Message, error) {
 	}
 
 	hash := argsToMap(args)
+
 	return &Message{
 		ID:      id,
 		Created: string(hash["created"]),
@@ -101,10 +107,13 @@ func (mbox *mailbox) DestroyAfter(m *Message, seconds int) error {
 		if _, err := conn.Do("DEL", key); err != nil {
 			return err
 		}
+
 		return nil
 	}
+
 	if _, err := conn.Do("EXPIRE", key, seconds); err != nil {
 		return err
 	}
+
 	return nil
 }

@@ -26,10 +26,21 @@ func NewMailbox(name, proto, addr, password string) Mailbox {
 	return &mailbox{
 		name:               name,
 		defaultWaitTimeout: 0, // Default to 0 so that the mailbox blocks forever
-		pool:               newPool(proto, addr, password),
+		pool:               NewPool(proto, addr, password),
 	}
 }
 
+// Create a new named mailbox to send and receive messages on using an
+// existing redis connection pool
+func NewMailboxWithPool(name string, pool *redis.Pool) Mailbox {
+	return &mailbox{
+		name:               name,
+		defaultWaitTimeout: 0, // Default to 0 so that the mailbox blocks forever
+		pool:               pool,
+	}
+}
+
+// Close closes the underlying connection pool to redis
 func (mbox *mailbox) Close() error {
 	return mbox.pool.Close()
 }
